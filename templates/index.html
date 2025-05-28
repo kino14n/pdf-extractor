@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Extractor de Tablas PDF</title>
+  <style>
+    body { font-family: sans-serif; padding: 2rem; background: #f0f2f5; }
+    h1 { color: #005fa3; }
+    form { margin-bottom: 1.5rem; }
+    table { border-collapse: collapse; width: 60%; background: #fff; }
+    th, td { border: 1px solid #ccc; padding: 0.5rem; text-align: center; }
+    th { background: #0074D9; color: #fff; }
+    .error { color: #c00; }
+  </style>
+</head>
+<body>
+  <h1>📑 Subir y Procesar PDF</h1>
+  {% if error %}
+    <p class="error">{{{{ error }}}}</p>
+  {% endif %}
+  <form method="post" enctype="multipart/form-data">
+    <input type="file" name="pdf" accept="application/pdf" required>
+    <button type="submit">Procesar</button>
+  </form>
+
+  {% if resumen_html %}
+    <h2>📊 Totales por Código</h2>
+    {{{{ resumen_html|safe }}}}
+  {% endif %}
+</body>
+</html>
