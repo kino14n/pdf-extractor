@@ -1,4 +1,3 @@
-<!-- actualizado: 28-May-2025 -->
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -16,7 +15,7 @@
 </head>
 <body>
   <h1>📑 Subir y Procesar PDF</h1>
-  
+
   {% if error %}
     <p class="error">{{ error }}</p>
   {% endif %}
@@ -27,7 +26,7 @@
   </form>
 
   {% if resumen_html %}
-    <h2>📊 Totales por Código</h2>
+    <h2>📊 Todas las ocurrencias</h2>
     {{ resumen_html|safe }}
   {% endif %}
 </body>
