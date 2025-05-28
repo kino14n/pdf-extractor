@@ -33,17 +33,22 @@ def index():
         for t in tablas:
             df = t.df
             for _, row in df.iterrows():
-                m1 = re.match(r'(\d+)x', row[0].strip())
-                if not m1: 
+                texto0 = row[0].strip()              # ej. "1x 2440-6 JOEFOX..."
+                # 1) Cantidad: (\d+)x
+                m1 = re.match(r'(\d+)x', texto0)
+                if not m1:
                     continue
                 cantidad = int(m1.group(1))
-                m2 = re.match(r'^(\S+)', row[1].strip())
+
+                # 2) Código: justo lo que sigue al 'x ' hasta el siguiente espacio
+                m2 = re.match(r'\d+x\s+(\S+)', texto0)
                 if not m2:
                     continue
                 codigo = m2.group(1)
+
                 datos.append({'codigo': codigo, 'cantidad': cantidad})
 
-        # DataFrame sin agrupar: cada fila tal cual
+        # DataFrame sin agrupar
         df_raw = pd.DataFrame(datos, columns=['codigo','cantidad'])
         tabla_html = df_raw.to_html(index=False)
 
