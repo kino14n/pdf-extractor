@@ -31,22 +31,26 @@ def index():
             f.save(path)
 
             try:
-                # 1) Intentamos con stream
+                # Probar stream, luego lattice
                 tablas = camelot.read_pdf(path, pages='all', flavor='stream')
-                if len(tablas) == 0:
-                    # 2) Si no hay, reintentamos con lattice
+                if not tablas:
                     tablas = camelot.read_pdf(path, pages='all', flavor='lattice')
 
-                if len(tablas) == 0:
+                if not tablas:
                     error_msg = "No se encontraron tablas en el PDF."
                 else:
                     datos = []
                     for t in tablas:
                         df = t.df
                         for fila in df.itertuples(index=False, name=None):
-                            texto = f"{fila[0].strip()} {fila[1].strip()}"
+                            # Unimos todas las columnas de la fila
+                            texto = " ".join(str(c).strip() for c in fila if c is not None)
+
+                            # Extraer cantidad (número antes de 'x')
                             m1 = re.search(r'(\d+)x', texto)
+                            # Extraer código (lo que sigue al 'x ' hasta espacio)
                             m2 = re.search(r'\d+x\s+([A-Za-z0-9-]+)', texto)
+
                             if m1 and m2:
                                 datos.append({
                                     'codigo': m2.group(1),
