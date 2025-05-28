@@ -1,7 +1,7 @@
 import re
 import os
-import camelot
 import pandas as pd
+import pdfplumber
 from flask import Flask, request, render_template
 from werkzeug.utils import secure_filename
 
@@ -31,37 +31,28 @@ def index():
             f.save(path)
 
             try:
-                # Probar stream, luego lattice
-                tablas = camelot.read_pdf(path, pages='all', flavor='stream')
-                if not tablas:
-                    tablas = camelot.read_pdf(path, pages='all', flavor='lattice')
+                # 1) Extraer todo el texto del PDF
+                texto = ""
+                with pdfplumber.open(path) as pdf:
+                    for page in pdf.pages:
+                        t = page.extract_text()
+                        if t:
+                            texto += t + "\n"
 
-                if not tablas:
-                    error_msg = "No se encontraron tablas en el PDF."
+                # 2) Buscar con regex todos los pares (cantidad, código)
+                #    Patrón: dígitos antes de 'x', luego espacios y el código (alfanum + guiones)
+                matches = re.findall(r'(\d+)x\s+([A-Za-z0-9-]+)', texto)
+
+                if not matches:
+                    error_msg = "No se hallaron códigos/cantidades en el PDF."
                 else:
-                    datos = []
-                    for t in tablas:
-                        df = t.df
-                        for fila in df.itertuples(index=False, name=None):
-                            # Unimos todas las columnas de la fila
-                            texto = " ".join(str(c).strip() for c in fila if c is not None)
-
-                            # Extraer cantidad (número antes de 'x')
-                            m1 = re.search(r'(\d+)x', texto)
-                            # Extraer código (lo que sigue al 'x ' hasta espacio)
-                            m2 = re.search(r'\d+x\s+([A-Za-z0-9-]+)', texto)
-
-                            if m1 and m2:
-                                datos.append({
-                                    'codigo': m2.group(1),
-                                    'cantidad': int(m1.group(1))
-                                })
-
-                    if not datos:
-                        error_msg = "No se hallaron códigos/cantidades en las tablas."
-                    else:
-                        df_raw = pd.DataFrame(datos, columns=['codigo','cantidad'])
-                        resumen_html = df_raw.to_html(index=False)
+                    # 3) Crear DataFrame con cada ocurrencia
+                    df = pd.DataFrame(matches, columns=['cantidad','codigo'])
+                    # Pasar cantidad a int
+                    df['cantidad'] = df['cantidad'].astype(int)
+                    # Reordenar columnas: código primero
+                    df = df[['codigo','cantidad']]
+                    resumen_html = df.to_html(index=False)
 
             except Exception as e:
                 error_msg = f"Error al procesar el PDF: {e}"

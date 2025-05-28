@@ -1,5 +1,5 @@
 flask
-camelot-py[cv]
+pdfplumber
 pandas
 gunicorn
 werkzeug
