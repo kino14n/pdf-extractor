@@ -27,28 +27,25 @@ def index():
         path = os.path.join(app.config['UPLOAD_FOLDER'], fn)
         f.save(path)
 
-        # Extrae todas las tablas
-        tablas = camelot.read_pdf(path, pages='all', flavor='stream')
         datos = []
+        tablas = camelot.read_pdf(path, pages='all', flavor='stream')
         for t in tablas:
             df = t.df
             for _, row in df.iterrows():
-                texto0 = row[0].strip()              # ej. "1x 2440-6 JOEFOX..."
-                # 1) Cantidad: (\d+)x
-                m1 = re.match(r'(\d+)x', texto0)
-                if not m1:
+                # Unimos col0 y col1 para asegurar que capturemos cantidad + código juntos
+                texto = f"{row[0].strip()} {row[1].strip()}"
+                # 1) Buscar cantidad: dígitos antes de 'x'
+                m_cant = re.search(r'(\d+)x', texto)
+                if not m_cant:
                     continue
-                cantidad = int(m1.group(1))
-
-                # 2) Código: justo lo que sigue al 'x ' hasta el siguiente espacio
-                m2 = re.match(r'\d+x\s+(\S+)', texto0)
-                if not m2:
+                cantidad = int(m_cant.group(1))
+                # 2) Buscar código: lo que sigue al 'x ' hasta el siguiente espacio
+                m_cod = re.search(r'\d+x\s+([A-Za-z0-9-]+)', texto)
+                if not m_cod:
                     continue
-                codigo = m2.group(1)
-
+                codigo = m_cod.group(1)
                 datos.append({'codigo': codigo, 'cantidad': cantidad})
 
-        # DataFrame sin agrupar
         df_raw = pd.DataFrame(datos, columns=['codigo','cantidad'])
         tabla_html = df_raw.to_html(index=False)
 
