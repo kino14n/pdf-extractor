@@ -1,4 +1,3 @@
-
 import re
 import os
 import pandas as pd
@@ -31,30 +30,29 @@ def index():
             f.save(path)
 
             try:
-                # 1) Extraemos TODO el texto del PDF
-                texto = ""
+                # 1) Extraer todas las líneas de texto
+                lines = []
                 with pdfplumber.open(path) as pdf:
                     for page in pdf.pages:
-                        t = page.extract_text()
-                        if t:
-                            texto += t + "\n"
+                        txt = page.extract_text()
+                        if txt:
+                            lines += txt.splitlines()
 
-                # 2) Unimos palabras partidas y colapsamos líneas/espacios
-                texto = texto.replace('-\n', '')      # une guiones al final de línea
-                texto = re.sub(r'\n+', ' ', texto)   # todas las líneas → espacios
-                texto = re.sub(r'\s+', ' ', texto).strip()
+                # 2) Patrón: cantidad (\d+) antes de x/×, luego código (alfanum+[:.-]) hasta primer espacio
+                pat = re.compile(r'^\s*(\d+)[x×]\s*([A-Za-z0-9][A-Za-z0-9:.\-]*)')
 
-                # 3) Capturamos (cantidad)x CÓDIGO, donde CÓDIGO empieza con alfanum y puede llevar :,.- 
-                patron = re.compile(r'(\d+)[x×]\s*([A-Za-z0-9][A-Za-z0-9:.\-]*)')
-                matches = patron.findall(texto)
+                datos = []
+                for line in lines:
+                    m = pat.match(line)
+                    if m:
+                        cantidad = int(m.group(1))
+                        codigo   = m.group(2)
+                        datos.append({'codigo': codigo, 'cantidad': cantidad})
 
-                if not matches:
-                    error_msg = "No se hallaron códigos/cantidades en el PDF."
+                if not datos:
+                    error_msg = "No se hallaron códigos válidos."
                 else:
-                    # Pasamos a DataFrame y lo ordenamos
-                    df = pd.DataFrame(matches, columns=['cantidad','codigo'])
-                    df['cantidad'] = df['cantidad'].astype(int)
-                    df = df[['codigo','cantidad']]
+                    df = pd.DataFrame(datos, columns=['codigo','cantidad'])
                     resumen_html = df.to_html(index=False)
 
             except Exception as e:
