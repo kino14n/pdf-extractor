@@ -30,27 +30,33 @@ def index():
             f.save(path)
 
             try:
-                # 1) Extraer todas las líneas de texto
+                # 1) Leemos todo el texto en líneas
                 lines = []
                 with pdfplumber.open(path) as pdf:
                     for page in pdf.pages:
-                        txt = page.extract_text()
-                        if txt:
-                            lines += txt.splitlines()
+                        txt = page.extract_text() or ""
+                        lines += txt.splitlines()
 
-                # 2) Patrón: cantidad (\d+) antes de x/×, luego código (alfanum+[:.-]) hasta primer espacio
-                pat = re.compile(r'^\s*(\d+)[x×]\s*([A-Za-z0-9][A-Za-z0-9:.\-]*)')
+                qty_pat = re.compile(r'^\s*(\d+)[x×]\s*$')
+                datos   = []
 
-                datos = []
-                for line in lines:
-                    m = pat.match(line)
-                    if m:
-                        cantidad = int(m.group(1))
-                        codigo   = m.group(2)
-                        datos.append({'codigo': codigo, 'cantidad': cantidad})
+                # 2) Para cada línea que solo tenga cantidad ("1x", "10×", etc.):
+                for i, line in enumerate(lines):
+                    m = qty_pat.match(line.strip())
+                    if not m:
+                        continue
+                    cantidad = int(m.group(1))
+
+                    # 3) El código siempre está en la LÍNEA SIGUIENTE antes del primer espacio
+                    if i + 1 < len(lines):
+                        next_line = lines[i+1].strip()
+                        token = next_line.split()[0]
+                        # Aseguramos que el token empiece por letra/dígito
+                        if re.match(r'^[A-Za-z0-9]', token):
+                            datos.append({'codigo': token, 'cantidad': cantidad})
 
                 if not datos:
-                    error_msg = "No se hallaron códigos válidos."
+                    error_msg = "No se encontraron códigos con dos líneas de descripción."
                 else:
                     df = pd.DataFrame(datos, columns=['codigo','cantidad'])
                     resumen_html = df.to_html(index=False)
