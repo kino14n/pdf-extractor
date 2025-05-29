@@ -31,7 +31,7 @@ def index():
             f.save(path)
 
             try:
-                # Extraemos todas las líneas de texto
+                # 1) Extraemos todas las líneas de texto
                 lines = []
                 with pdfplumber.open(path) as pdf:
                     for page in pdf.pages:
@@ -40,10 +40,14 @@ def index():
                             lines += t.splitlines()
 
                 datos = []
-                # Anchura al principio para capturar solo lineas que empiecen con cantidad y código
-                patron = re.compile(r'^\s*(\d+)\s*[x×]\s*([A-Za-z0-9-]+)')
+                # Regex para línea que empieza con cantidad "1x", "10×", etc.
+                # y captura cualquier secuencia de no-espacios como código
+                patron = re.compile(r'^\s*(\d+)\s*[x×]\s*([^\s]+)')
 
-                for line in lines:
+                for raw in lines:
+                    line = raw.strip()
+                    if not line:
+                        continue
                     m = patron.match(line)
                     if m:
                         cantidad = int(m.group(1))
