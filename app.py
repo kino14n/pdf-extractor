@@ -30,43 +30,45 @@ def index():
             f.save(path)
 
             try:
-                # 1) Extraemos todas las líneas de texto del PDF
+                # 1) Leemos todas las líneas del PDF
                 lines = []
                 with pdfplumber.open(path) as pdf:
                     for page in pdf.pages:
                         txt = page.extract_text() or ""
                         lines += txt.splitlines()
 
-                datos = []
-                # Patrón combinado: cantidad + código en la misma línea
+                # 2) Patrones
                 combined_pat = re.compile(r'^\s*(\d+)[x×]\s*([A-Za-z0-9][A-Za-z0-9:.\-]*)')
-                # Patrón solo cantidad (sin código)
-                qty_only_pat = re.compile(r'^\s*(\d+)[x×]\b')
-                # Patrón para validar que un token es código
+                qty_only_pat = re.compile(r'^\s*(\d+)[x×]\s*$')
                 code_pat     = re.compile(r'^[A-Za-z0-9][A-Za-z0-9:.\-]*$')
 
-                for i, raw in enumerate(lines):
-                    line = raw.strip()
-                    if not line:
-                        continue
-
-                    # 2a) ¿Cantidad + código juntos?
+                datos = []
+                i = 0
+                n = len(lines)
+                while i < n:
+                    line = lines[i].strip()
+                    # 2a) Cantidad + código en la MISMA línea
                     m1 = combined_pat.match(line)
                     if m1:
                         cantidad = int(m1.group(1))
                         codigo   = m1.group(2)
                         datos.append({'codigo': codigo, 'cantidad': cantidad})
+                        i += 1
                         continue
 
-                    # 2b) ¿Solo cantidad en esta línea?
+                    # 2b) Solo cantidad → buscar código en la siguiente línea
                     m2 = qty_only_pat.match(line)
-                    if m2 and i+1 < len(lines):
+                    if m2 and i+1 < n:
                         cantidad = int(m2.group(1))
                         next_line = lines[i+1].strip()
                         token = next_line.split()[0] if next_line.split() else ''
                         if code_pat.match(token):
                             datos.append({'codigo': token, 'cantidad': cantidad})
-                        continue
+                            i += 2
+                            continue
+
+                    # 2c) Si nada coincide, avanzamos
+                    i += 1
 
                 if not datos:
                     error_msg = "No se hallaron códigos válidos en el PDF."
