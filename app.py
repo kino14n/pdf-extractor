@@ -14,7 +14,7 @@ app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
 def allowed_file(fn):
-    return '.' in fn and fn.rsplit('.',1)[1].lower() in ALLOWED_EXTENSIONS
+    return '.' in fn and fn.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 @app.route('/', methods=['GET','POST'])
 def index():
@@ -39,18 +39,19 @@ def index():
                         if t:
                             texto += t + "\n"
 
-                # 2) Buscar con regex todos los pares (cantidad, código)
-                #    Patrón: dígitos antes de 'x', luego espacios y el código (alfanum + guiones)
-                matches = re.findall(r'(\d+)x\s+([A-Za-z0-9-]+)', texto)
+                # 2) Normalizar: reemplazar saltos de línea y múltiples espacios por uno solo
+                texto = re.sub(r'\s+', ' ', texto)
+
+                # 3) Buscar pares (cantidad, código)
+                regex = r'(\d+)[x×]\s*([A-Za-z0-9-]+)'
+                matches = re.findall(regex, texto)
 
                 if not matches:
                     error_msg = "No se hallaron códigos/cantidades en el PDF."
                 else:
-                    # 3) Crear DataFrame con cada ocurrencia
+                    # Construir DataFrame
                     df = pd.DataFrame(matches, columns=['cantidad','codigo'])
-                    # Pasar cantidad a int
                     df['cantidad'] = df['cantidad'].astype(int)
-                    # Reordenar columnas: código primero
                     df = df[['codigo','cantidad']]
                     resumen_html = df.to_html(index=False)
 
