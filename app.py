@@ -31,31 +31,32 @@ def index():
             f.save(path)
 
             try:
-                # 1) Extraemos todas las líneas de texto
+                # 1) Leemos el PDF línea a línea
                 lines = []
                 with pdfplumber.open(path) as pdf:
                     for page in pdf.pages:
-                        t = page.extract_text()
-                        if t:
-                            lines += t.splitlines()
+                        txt = page.extract_text()
+                        if txt:
+                            lines += txt.splitlines()
 
                 datos = []
-                # Regex para línea que empieza con cantidad "1x", "10×", etc.
-                # y captura cualquier secuencia de no-espacios como código
-                patron = re.compile(r'^\s*(\d+)\s*[x×]\s*([^\s]+)')
+                # Regex:
+                #  ^\s*(\d+)         → cantidad (grupo 1)
+                #  [x×]\s*           → literal 'x' o '×'
+                #  ([A-Za-z0-9][A-Za-z0-9:.\-]*) → código (grupo 2)
+                patron = re.compile(r'^\s*(\d+)[x×]\s*([A-Za-z0-9][A-Za-z0-9:.\-]*)')
 
                 for raw in lines:
                     line = raw.strip()
-                    if not line:
-                        continue
                     m = patron.match(line)
-                    if m:
-                        cantidad = int(m.group(1))
-                        codigo   = m.group(2)
-                        datos.append({'codigo': codigo, 'cantidad': cantidad})
+                    if not m:
+                        continue
+                    cantidad = int(m.group(1))
+                    codigo   = m.group(2)
+                    datos.append({'codigo': codigo, 'cantidad': cantidad})
 
                 if not datos:
-                    error_msg = "No se hallaron códigos/cantidades en el PDF."
+                    error_msg = "No se hallaron códigos/cantidades válidos en el PDF."
                 else:
                     df = pd.DataFrame(datos, columns=['codigo','cantidad'])
                     resumen_html = df.to_html(index=False)
