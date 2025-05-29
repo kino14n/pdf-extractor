@@ -1,6 +1,8 @@
-import os, re
-import camelot
+
+import re
+import os
 import pandas as pd
+import pdfplumber
 from flask import Flask, request, render_template
 from werkzeug.utils import secure_filename
 
@@ -12,74 +14,55 @@ app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
 def allowed_file(fn):
-    return '.' in fn and fn.rsplit('.',1)[1].lower() in ALLOWED_EXTENSIONS
+    return '.' in fn and fn.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 @app.route('/', methods=['GET','POST'])
 def index():
-    tabla_html = None
-    error = None
+    resumen_html = None
+    error_msg    = None
 
     if request.method == 'POST':
         f = request.files.get('pdf')
         if not f or not allowed_file(f.filename):
-            error = "Sube un PDF válido."
+            error_msg = "Sube un PDF válido."
         else:
-            fn = secure_filename(f.filename)
+            fn   = secure_filename(f.filename)
             path = os.path.join(app.config['UPLOAD_FOLDER'], fn)
             f.save(path)
+
             try:
-                tablas = camelot.read_pdf(path, pages='all', flavor='stream')
-                if not tablas:
-                    tablas = camelot.read_pdf(path, pages='all', flavor='lattice')
+                # 1) Extraemos TODO el texto del PDF
+                texto = ""
+                with pdfplumber.open(path) as pdf:
+                    for page in pdf.pages:
+                        t = page.extract_text()
+                        if t:
+                            texto += t + "\n"
 
-                datos = []
-                code_pat = re.compile(r'^[A-Za-z0-9][A-Za-z0-9:.\-]*$')
-                qty_pat  = re.compile(r'^\s*(\d+)[x×]')
+                # 2) Unimos palabras partidas y colapsamos líneas/espacios
+                texto = texto.replace('-\n', '')      # une guiones al final de línea
+                texto = re.sub(r'\n+', ' ', texto)   # todas las líneas → espacios
+                texto = re.sub(r'\s+', ' ', texto).strip()
 
-                for t in tablas:
-                    df = t.df
-                    n = len(df)
-                    i = 0
-                    while i < n:
-                        row = df.iloc[i]
-                        # 1) extraer cantidad
-                        m_qty = qty_pat.match(str(row[0]))
-                        if not m_qty:
-                            i += 1
-                            continue
-                        cant = int(m_qty.group(1))
+                # 3) Capturamos (cantidad)x CÓDIGO, donde CÓDIGO empieza con alfanum y puede llevar :,.- 
+                patron = re.compile(r'(\d+)[x×]\s*([A-Za-z0-9][A-Za-z0-9:.\-]*)')
+                matches = patron.findall(texto)
 
-                        # 2) intenta extraer código de la misma fila
-                        desc = str(row[1]).replace('\n',' ').strip()
-                        tok = desc.split()[0] if desc.split() else ''
-                        if code_pat.match(tok):
-                            datos.append({'codigo': tok, 'cantidad': cant})
-                            i += 1
-                            continue
-
-                        # 3) si no está, mira la siguiente fila
-                        if i+1 < n:
-                            next_desc = str(df.iloc[i+1,1]).replace('\n',' ').strip()
-                            tok2 = next_desc.split()[0] if next_desc.split() else ''
-                            if code_pat.match(tok2):
-                                datos.append({'codigo': tok2, 'cantidad': cant})
-                                i += 2
-                                continue
-
-                        # si no localiza, avanza sólo uno
-                        i += 1
-
-                if not datos:
-                    error = "No se detectaron códigos ni cantidades."
+                if not matches:
+                    error_msg = "No se hallaron códigos/cantidades en el PDF."
                 else:
-                    out = pd.DataFrame(datos, columns=['codigo','cantidad'])
-                    tabla_html = out.to_html(index=False)
+                    # Pasamos a DataFrame y lo ordenamos
+                    df = pd.DataFrame(matches, columns=['cantidad','codigo'])
+                    df['cantidad'] = df['cantidad'].astype(int)
+                    df = df[['codigo','cantidad']]
+                    resumen_html = df.to_html(index=False)
 
             except Exception as e:
-                error = f"Error al procesar el PDF: {e}"
+                error_msg = f"Error al procesar el PDF: {e}"
 
-    return render_template('index.html', resumen_html=tabla_html, error=error)
-
+    return render_template('index.html',
+                           resumen_html=resumen_html,
+                           error=error_msg)
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
