@@ -5,7 +5,7 @@ import pdfplumber
 from flask import Flask, request, render_template
 from werkzeug.utils import secure_filename
 
-# —— Configuración básica ——
+# — Configuración —
 UPLOAD_FOLDER = 'uploads'
 ALLOWED_EXTENSIONS = {'pdf'}
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
@@ -22,67 +22,36 @@ def index():
     error_msg    = None
 
     if request.method == 'POST':
-        f = request.files.get('pdf')
-        if not f or not allowed_file(f.filename):
+        fichero = request.files.get('pdf')
+        if not fichero or not allowed_file(fichero.filename):
             error_msg = "Sube un PDF válido."
         else:
-            filename = secure_filename(f.filename)
-            path     = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-            f.save(path)
+            nombre = secure_filename(fichero.filename)
+            ruta   = os.path.join(app.config['UPLOAD_FOLDER'], nombre)
+            fichero.save(ruta)
 
             try:
-                # 1) Leemos todo el texto y lo separamos en líneas
-                lines = []
-                with pdfplumber.open(path) as pdf:
+                # 1) Abrimos PDF y extraemos TODO el texto
+                texto = ""
+                with pdfplumber.open(ruta) as pdf:
                     for page in pdf.pages:
-                        txt = page.extract_text()
-                        if txt:
-                            lines += txt.splitlines()
+                        t = page.extract_text() or ""
+                        texto += t + "\n"
 
-                datos   = []
-                prev_qty = None
+                # 2) Colapsamos saltos de línea y múltiples espacios
+                texto = re.sub(r'\n+', ' ', texto)
+                texto = re.sub(r'\s+', ' ', texto)
 
-                # 2) Regex para línea que contenga cantidad y código juntos:
-                re_qty_code = re.compile(r'^\s*(\d+)[x×]\s*([A-Za-z0-9][A-Za-z0-9:.\-]*)')
-                # 3) Regex para línea que solo tenga cantidad:
-                re_qty_only = re.compile(r'^\s*(\d+)[x×]\s*$')
-                # 4) Regex para extraer código en línea siguiente:
-                re_code     = re.compile(r'^\s*([A-Za-z0-9][A-Za-z0-9:.\-]*)')
+                # 3) Regex global: captura cantidad antes de x/× + código hasta el primer espacio
+                patron = re.compile(r'(\d+)[x×]\s*([A-Za-z0-9][A-Za-z0-9:.\-]*)')
+                matches = patron.findall(texto)
 
-                for raw in lines:
-                    line = raw.strip()
-                    if not line:
-                        continue
-
-                    # 2a) ¿Cantidad + código en la misma línea?
-                    m = re_qty_code.match(line)
-                    if m:
-                        qty   = int(m.group(1))
-                        code  = m.group(2)
-                        datos.append({'codigo': code, 'cantidad': qty})
-                        prev_qty = None
-                        continue
-
-                    # 2b) ¿Solo cantidad en esta línea?
-                    m2 = re_qty_only.match(line)
-                    if m2:
-                        prev_qty = int(m2.group(1))
-                        continue
-
-                    # 2c) Si venimos de una línea con solo cantidad, extraemos código aquí
-                    if prev_qty is not None:
-                        m3 = re_code.match(line)
-                        if m3:
-                            code = m3.group(1)
-                            datos.append({'codigo': code, 'cantidad': prev_qty})
-                            prev_qty = None
-                            continue
-                        # si no coincide, dejamos prev_qty a la espera
-
-                if not datos:
+                if not matches:
                     error_msg = "No se hallaron códigos/cantidades en el PDF."
                 else:
-                    df = pd.DataFrame(datos, columns=['codigo','cantidad'])
+                    df = pd.DataFrame(matches, columns=['cantidad','codigo'])
+                    df['cantidad'] = df['cantidad'].astype(int)
+                    df = df[['codigo','cantidad']]
                     resumen_html = df.to_html(index=False)
 
             except Exception as e:
