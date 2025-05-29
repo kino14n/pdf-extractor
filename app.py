@@ -1,11 +1,9 @@
-import re
-import os
+import os, re
+import camelot
 import pandas as pd
-import pdfplumber
 from flask import Flask, request, render_template
 from werkzeug.utils import secure_filename
 
-# — Configuración —
 UPLOAD_FOLDER = 'uploads'
 ALLOWED_EXTENSIONS = {'pdf'}
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
@@ -14,52 +12,74 @@ app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
 def allowed_file(fn):
-    return '.' in fn and fn.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+    return '.' in fn and fn.rsplit('.',1)[1].lower() in ALLOWED_EXTENSIONS
 
 @app.route('/', methods=['GET','POST'])
 def index():
-    resumen_html = None
-    error_msg    = None
+    tabla_html = None
+    error = None
 
     if request.method == 'POST':
-        fichero = request.files.get('pdf')
-        if not fichero or not allowed_file(fichero.filename):
-            error_msg = "Sube un PDF válido."
+        f = request.files.get('pdf')
+        if not f or not allowed_file(f.filename):
+            error = "Sube un PDF válido."
         else:
-            nombre = secure_filename(fichero.filename)
-            ruta   = os.path.join(app.config['UPLOAD_FOLDER'], nombre)
-            fichero.save(ruta)
-
+            fn = secure_filename(f.filename)
+            path = os.path.join(app.config['UPLOAD_FOLDER'], fn)
+            f.save(path)
             try:
-                # 1) Abrimos PDF y extraemos TODO el texto
-                texto = ""
-                with pdfplumber.open(ruta) as pdf:
-                    for page in pdf.pages:
-                        t = page.extract_text() or ""
-                        texto += t + "\n"
+                tablas = camelot.read_pdf(path, pages='all', flavor='stream')
+                if not tablas:
+                    tablas = camelot.read_pdf(path, pages='all', flavor='lattice')
 
-                # 2) Colapsamos saltos de línea y múltiples espacios
-                texto = re.sub(r'\n+', ' ', texto)
-                texto = re.sub(r'\s+', ' ', texto)
+                datos = []
+                code_pat = re.compile(r'^[A-Za-z0-9][A-Za-z0-9:.\-]*$')
+                qty_pat  = re.compile(r'^\s*(\d+)[x×]')
 
-                # 3) Regex global: captura cantidad antes de x/× + código hasta el primer espacio
-                patron = re.compile(r'(\d+)[x×]\s*([A-Za-z0-9][A-Za-z0-9:.\-]*)')
-                matches = patron.findall(texto)
+                for t in tablas:
+                    df = t.df
+                    n = len(df)
+                    i = 0
+                    while i < n:
+                        row = df.iloc[i]
+                        # 1) extraer cantidad
+                        m_qty = qty_pat.match(str(row[0]))
+                        if not m_qty:
+                            i += 1
+                            continue
+                        cant = int(m_qty.group(1))
 
-                if not matches:
-                    error_msg = "No se hallaron códigos/cantidades en el PDF."
+                        # 2) intenta extraer código de la misma fila
+                        desc = str(row[1]).replace('\n',' ').strip()
+                        tok = desc.split()[0] if desc.split() else ''
+                        if code_pat.match(tok):
+                            datos.append({'codigo': tok, 'cantidad': cant})
+                            i += 1
+                            continue
+
+                        # 3) si no está, mira la siguiente fila
+                        if i+1 < n:
+                            next_desc = str(df.iloc[i+1,1]).replace('\n',' ').strip()
+                            tok2 = next_desc.split()[0] if next_desc.split() else ''
+                            if code_pat.match(tok2):
+                                datos.append({'codigo': tok2, 'cantidad': cant})
+                                i += 2
+                                continue
+
+                        # si no localiza, avanza sólo uno
+                        i += 1
+
+                if not datos:
+                    error = "No se detectaron códigos ni cantidades."
                 else:
-                    df = pd.DataFrame(matches, columns=['cantidad','codigo'])
-                    df['cantidad'] = df['cantidad'].astype(int)
-                    df = df[['codigo','cantidad']]
-                    resumen_html = df.to_html(index=False)
+                    out = pd.DataFrame(datos, columns=['codigo','cantidad'])
+                    tabla_html = out.to_html(index=False)
 
             except Exception as e:
-                error_msg = f"Error al procesar el PDF: {e}"
+                error = f"Error al procesar el PDF: {e}"
 
-    return render_template('index.html',
-                           resumen_html=resumen_html,
-                           error=error_msg)
+    return render_template('index.html', resumen_html=tabla_html, error=error)
+
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
