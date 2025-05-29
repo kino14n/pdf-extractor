@@ -1,72 +1,33 @@
-import re
-import os
-import pandas as pd
-import pdfplumber
-from flask import Flask, request, render_template
-from werkzeug.utils import secure_filename
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Extractor de Código y Cantidad</title>
+  <style>
+    body { font-family: sans-serif; padding: 2rem; background: #f0f2f5; }
+    h1 { color: #005fa3; }
+    form { margin-bottom: 1.5rem; }
+    table { border-collapse: collapse; width: 80%; max-width:600px; background: #fff; margin-top: 1rem; }
+    th, td { border: 1px solid #ccc; padding: 0.5rem; text-align: center; }
+    th { background: #0074D9; color: #fff; }
+    .error { color: #c00; }
+  </style>
+</head>
+<body>
+  <h1>📑 Subir y Procesar PDF</h1>
 
-# —— Configuración básica ——
-UPLOAD_FOLDER = 'uploads'
-ALLOWED_EXTENSIONS = {'pdf'}
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+  {% if error %}
+    <p class="error">{{ error }}</p>
+  {% endif %}
 
-app = Flask(__name__)
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+  <form method="post" enctype="multipart/form-data">
+    <input type="file" name="pdf" accept="application/pdf" required>
+    <button type="submit">Procesar</button>
+  </form>
 
-def allowed_file(fn):
-    return '.' in fn and fn.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
-
-@app.route('/', methods=['GET','POST'])
-def index():
-    resumen_html = None
-    error_msg = None
-
-    if request.method == 'POST':
-        f = request.files.get('pdf')
-        if not f or not allowed_file(f.filename):
-            error_msg = "Sube un PDF válido."
-        else:
-            fn = secure_filename(f.filename)
-            path = os.path.join(app.config['UPLOAD_FOLDER'], fn)
-            f.save(path)
-
-            try:
-                # 1) Leemos el PDF línea a línea
-                lines = []
-                with pdfplumber.open(path) as pdf:
-                    for page in pdf.pages:
-                        txt = page.extract_text()
-                        if txt:
-                            lines += txt.splitlines()
-
-                datos = []
-                # Regex:
-                #  ^\s*(\d+)         → cantidad (grupo 1)
-                #  [x×]\s*           → literal 'x' o '×'
-                #  ([A-Za-z0-9][A-Za-z0-9:.\-]*) → código (grupo 2)
-                patron = re.compile(r'^\s*(\d+)[x×]\s*([A-Za-z0-9][A-Za-z0-9:.\-]*)')
-
-                for raw in lines:
-                    line = raw.strip()
-                    m = patron.match(line)
-                    if not m:
-                        continue
-                    cantidad = int(m.group(1))
-                    codigo   = m.group(2)
-                    datos.append({'codigo': codigo, 'cantidad': cantidad})
-
-                if not datos:
-                    error_msg = "No se hallaron códigos/cantidades válidos en el PDF."
-                else:
-                    df = pd.DataFrame(datos, columns=['codigo','cantidad'])
-                    resumen_html = df.to_html(index=False)
-
-            except Exception as e:
-                error_msg = f"Error al procesar el PDF: {e}"
-
-    return render_template('index.html',
-                           resumen_html=resumen_html,
-                           error=error_msg)
-
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000)
+  {% if resumen_html %}
+    <h2>📊 Todas las ocurrencias</h2>
+    {{ resumen_html|safe }}
+  {% endif %}
+</body>
+</html>
