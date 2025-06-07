@@ -26,6 +26,7 @@
   </form>
 
   {% if resumen_html %}
+    <p><strong>Se encontraron {{ total }} códigos.</strong></p>
     <h2>📊 Todas las ocurrencias</h2>
     {{ resumen_html|safe }}
   {% endif %}
