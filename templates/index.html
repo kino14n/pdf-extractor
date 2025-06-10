@@ -6,7 +6,7 @@
   <style>
     body { font-family: sans-serif; padding: 2rem; background: #f0f2f5; }
     h1 { color: #005fa3; }
-    form { margin-bottom: 1.5rem; }
+    form { margin-bottom: 1.5rem; display: flex; gap: 0.5rem; align-items: center; }
     .message { font-size: 1.2rem; margin-top: 1rem; }
     .message.success { 
       color: #155724; 
@@ -15,8 +15,8 @@
       border-radius: 5px; 
       display: flex; 
       align-items: center; 
+      justify-content: space-between;
     }
-    .message.success span { flex: 1; }
     .btn-clear {
       background: #ff4757;
       color: #fff;
@@ -25,7 +25,6 @@
       font-size: 0.9rem;
       border-radius: 4px;
       cursor: pointer;
-      margin-left: 1rem;
     }
     table { 
       border-collapse: collapse; 
@@ -49,12 +48,12 @@
   <form method="post" enctype="multipart/form-data">
     <input type="file" name="pdf" accept="application/pdf" required />
     <button type="submit">Procesar</button>
+    <button type="button" class="btn-clear" onclick="window.location.href='/'">Limpiar</button>
   </form>
 
   {% if resumen_html %}
     <div class="message success">
-      <span>🎉 ¡Éxito! Se extrajeron un total de <strong>{{ total_qty }}</strong> unidades.</span>
-      <button class="btn-clear" onclick="window.location.href='/'">Limpiar</button>
+      🎉 ¡Éxito! Se extrajo un total de <strong>{{ total_qty }}</strong> códigos.
     </div>
     <h2>📊 Totales por Código</h2>
     {{ resumen_html|safe }}
