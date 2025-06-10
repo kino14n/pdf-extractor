@@ -6,15 +6,23 @@
   <style>
     body { font-family: sans-serif; padding: 2rem; background: #f0f2f5; }
     h1 { color: #005fa3; }
-    form { margin-bottom: 1.5rem; display: flex; gap: 0.5rem; align-items: center; }
-    .message { font-size: 1.2rem; margin-top: 1rem; }
-    .message.success { 
-      color: #155724; 
-      background: #d4edda; 
-      padding: 0.75rem; 
-      border-radius: 5px; 
-      display: flex; 
-      align-items: center; 
+    form {
+      margin-bottom: 1.5rem;
+      display: flex;
+      gap: 0.5rem;
+      align-items: center;
+    }
+    .message {
+      font-size: 1.2rem;
+      margin-top: 1rem;
+    }
+    .message.success {
+      background: #d4edda;
+      color: #155724;
+      padding: 0.75rem;
+      border-radius: 5px;
+      display: flex;
+      align-items: center;
       justify-content: space-between;
     }
     .btn-clear {
@@ -26,14 +34,18 @@
       border-radius: 4px;
       cursor: pointer;
     }
-    table { 
-      border-collapse: collapse; 
-      width: 80%; 
-      max-width: 600px; 
-      background: #fff; 
-      margin-top: 1rem; 
+    table {
+      border-collapse: collapse;
+      width: 80%;
+      max-width: 600px;
+      background: #fff;
+      margin-top: 1rem;
     }
-    th, td { border: 1px solid #ccc; padding: 0.5rem; text-align: center; }
+    th, td {
+      border: 1px solid #ccc;
+      padding: 0.5rem;
+      text-align: center;
+    }
     th { background: #0074D9; color: #fff; }
     .error { color: #c00; }
   </style>
@@ -53,7 +65,7 @@
 
   {% if resumen_html %}
     <div class="message success">
-      🎉 ¡Éxito! Se extrajo un total de <strong>{{ total_qty }}</strong> códigos.
+      🎉 Se encontraron <strong>{{ total_codes }}</strong> códigos.
     </div>
     <h2>📊 Totales por Código</h2>
     {{ resumen_html|safe }}
