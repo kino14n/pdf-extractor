@@ -1,73 +1,38 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="UTF-8">
   <title>Extractor de Código y Cantidad</title>
   <style>
     body { font-family: sans-serif; padding: 2rem; background: #f0f2f5; }
     h1 { color: #005fa3; }
-    form {
-      margin-bottom: 1.5rem;
-      display: flex;
-      gap: 0.5rem;
-      align-items: center;
-    }
-    .message {
-      font-size: 1.2rem;
-      margin-top: 1rem;
-    }
-    .message.success {
-      background: #d4edda;
-      color: #155724;
-      padding: 0.75rem;
-      border-radius: 5px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-    .btn-clear {
-      background: #ff4757;
-      color: #fff;
-      border: none;
-      padding: 0.5rem 1rem;
-      font-size: 0.9rem;
-      border-radius: 4px;
-      cursor: pointer;
-    }
-    table {
-      border-collapse: collapse;
-      width: 80%;
-      max-width: 600px;
-      background: #fff;
-      margin-top: 1rem;
-    }
-    th, td {
-      border: 1px solid #ccc;
-      padding: 0.5rem;
-      text-align: center;
-    }
+    form { margin-bottom: 1.5rem; }
+    button { margin-left: 0.5rem; }
+    table { border-collapse: collapse; width: 80%; max-width:600px; background: #fff; margin-top: 1rem; }
+    th, td { border: 1px solid #ccc; padding: 0.5rem; text-align: center; }
     th { background: #0074D9; color: #fff; }
     .error { color: #c00; }
+    .total { margin-top: 1rem; font-weight: bold; }
   </style>
 </head>
 <body>
   <h1>📑 Subir y Procesar PDF</h1>
 
   {% if error %}
-    <p class="error">❌ {{ error }}</p>
+    <p class="error">{{ error }}</p>
   {% endif %}
 
   <form method="post" enctype="multipart/form-data">
-    <input type="file" name="pdf" accept="application/pdf" required />
+    <input type="file" name="pdf" accept="application/pdf" required>
     <button type="submit">Procesar</button>
-    <button type="button" class="btn-clear" onclick="window.location.href='/'">Limpiar</button>
+    {% if resumen_html %}
+      <button type="button" onclick="window.location.href='/'">Limpiar</button>
+    {% endif %}
   </form>
 
   {% if resumen_html %}
-    <div class="message success">
-      🎉 Se encontraron <strong>{{ total_codes }}</strong> códigos.
-    </div>
-    <h2>📊 Totales por Código</h2>
+    <p class="total">Total de códigos encontrados: {{ total }}</p>
+    <h2>📊 Todas las ocurrencias</h2>
     {{ resumen_html|safe }}
   {% endif %}
 </body>
