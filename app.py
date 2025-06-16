@@ -46,6 +46,7 @@ def index():
                                 if code_pat.match(codigo):
                                     datos.append({'codigo': codigo, 'cantidad': cantidad})
 
+                # Mantener orden y contar entradas
                 total = len(datos)
                 if total == 0:
                     error_msg = "No se hallaron códigos/cantidades en el PDF."
