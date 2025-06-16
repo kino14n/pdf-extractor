@@ -1,4 +1,6 @@
+*.zip
+build/
+dist/
+cli-extractor.spec
 __pycache__/
 uploads/
-*.pyc
-.env

@@ -1,90 +1,38 @@
-import re
-import os
-import pandas as pd
-import pdfplumber
-from flask import Flask, request, render_template
-from werkzeug.utils import secure_filename
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Extractor de Código y Cantidad</title>
+  <style>
+    body { font-family: sans-serif; padding: 2rem; background: #f0f2f5; }
+    h1 { color: #005fa3; }
+    form { margin-bottom: 1.5rem; }
+    button { margin-left: 0.5rem; }
+    table { border-collapse: collapse; width: 80%; max-width:600px; background: #fff; margin-top: 1rem; }
+    th, td { border: 1px solid #ccc; padding: 0.5rem; text-align: center; }
+    th { background: #0074D9; color: #fff; }
+    .error { color: #c00; }
+  </style>
+</head>
+<body>
+  <h1>📑 Subir y Procesar PDF</h1>
 
-UPLOAD_FOLDER = 'uploads'
-ALLOWED_EXTENSIONS = {'pdf'}
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+  {% if error %}
+    <p class="error">{{ error }}</p>
+  {% endif %}
 
-app = Flask(__name__)
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+  <form method="post" enctype="multipart/form-data">
+    <input type="file" name="pdf" accept="application/pdf" required>
+    <button type="submit">Procesar</button>
+    {% if resumen_html %}
+      <button type="button" onclick="window.location.href='/'">Limpiar</button>
+    {% endif %}
+  </form>
 
-def allowed_file(fn):
-    return '.' in fn and fn.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
-
-@app.route('/', methods=['GET','POST'])
-def index():
-    resumen_html = None
-    error_msg    = None
-    total        = 0
-
-    if request.method == 'POST':
-        f = request.files.get('pdf')
-        if not f or not allowed_file(f.filename):
-            error_msg = "Sube un PDF válido."
-        else:
-            fn   = secure_filename(f.filename)
-            path = os.path.join(app.config['UPLOAD_FOLDER'], fn)
-            f.save(path)
-
-            try:
-                # 1) Extraemos todas las líneas de texto, en orden
-                lines = []
-                with pdfplumber.open(path) as pdf:
-                    for page in pdf.pages:
-                        txt = page.extract_text() or ""
-                        lines += txt.splitlines()
-
-                # 2) Patrones
-                combined_pat = re.compile(r'^\s*(\d+)[x×]\s*([A-Za-z0-9][A-Za-z0-9:.\-]*)')
-                qty_only_pat = re.compile(r'^\s*(\d+)[x×]\s*$')
-                code_pat     = re.compile(r'^[A-Za-z0-9][A-Za-z0-9:.\-]*$')
-
-                datos = []
-                i = 0
-                n = len(lines)
-                while i < n:
-                    line = lines[i].strip()
-
-                    # 2a) Cantidad + código en la MISMA línea
-                    m1 = combined_pat.match(line)
-                    if m1:
-                        cantidad = int(m1.group(1))
-                        codigo   = m1.group(2)
-                        datos.append({'codigo': codigo, 'cantidad': cantidad})
-                        i += 1
-                        continue
-
-                    # 2b) Sólo cantidad → buscar código en la línea siguiente
-                    m2 = qty_only_pat.match(line)
-                    if m2 and i + 1 < n:
-                        cantidad  = int(m2.group(1))
-                        next_line = lines[i+1].strip()
-                        token     = next_line.split()[0] if next_line.split() else ''
-                        if code_pat.match(token):
-                            datos.append({'codigo': token, 'cantidad': cantidad})
-                        i += 2
-                        continue
-
-                    i += 1
-
-                total = len(datos)
-                if total == 0:
-                    error_msg = "No se hallaron códigos/cantidades en el PDF."
-                else:
-                    df = pd.DataFrame(datos, columns=['codigo','cantidad'])
-                    resumen_html = df.to_html(index=False)
-
-            except Exception as e:
-                error_msg = f"Error al procesar el PDF: {e}"
-
-    return render_template('index.html',
-                           resumen_html=resumen_html,
-                           error=error_msg,
-                           total=total)
-
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000)
+  {% if resumen_html %}
+    <p><strong>Total de códigos encontrados: {{ total }}</strong></p>
+    <h2>📊 Todas las ocurrencias</h2>
+    {{ resumen_html|safe }}
+  {% endif %}
+</body>
+</html>
